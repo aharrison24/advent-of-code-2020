@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use itertools::Itertools;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -15,18 +15,20 @@ fn main() {
 
     let file = File::open(&args.path).expect("Cannot open file");
 
-    let nums: HashSet<_> = BufReader::new(file)
+    let nums = BufReader::new(file)
         .lines()
         .filter_map(Result::ok)
         .filter_map(|x| x.parse::<i32>().ok())
-        .collect();
+        .collect_vec();
 
-    for num in &nums {
-        if nums.contains(&(2020 - num)) {
-            println!("Result: {}", num * (2020 - num));
-            return;
-        }
+    let combos = nums.iter().combinations(2);
+
+    let mut prod = combos
+        .filter(|x| x.iter().cloned().sum::<i32>() == 2020)
+        .map(|x| x.iter().cloned().product::<i32>());
+
+    match prod.next() {
+        None => println!("No answer found!"),
+        Some(x) => println!("{}", x),
     }
-
-    println!("No result found");
 }
