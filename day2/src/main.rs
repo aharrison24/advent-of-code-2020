@@ -10,42 +10,47 @@ use std::io::{BufRead, BufReader};
 use structopt::StructOpt;
 
 #[derive(Debug, PartialEq)]
-struct Policy {
-    min: i32,
-    max: i32,
-    c: char,
+struct PolicyAndPassword {
+    num1: usize,
+    num2: usize,
+    character: char,
     password: String,
 }
 
-fn to_i32(input: &str) -> Result<i32, std::num::ParseIntError> {
-    input.parse()
+fn parse_positive_integer(input: &str) -> IResult<&str, usize> {
+    map_res(digit1, |x: &str| x.parse())(input)
 }
 
-fn integer(input: &str) -> IResult<&str, i32> {
-    map_res(digit1, to_i32)(input)
-}
-
-fn policy(input: &str) -> IResult<&str, Policy> {
-    let (input, min) = integer(input)?;
+fn parse_policy(input: &str) -> IResult<&str, PolicyAndPassword> {
+    let (input, num1) = parse_positive_integer(input)?;
     let (input, _) = tag("-")(input)?;
-    let (input, max) = integer(input)?;
+    let (input, num2) = parse_positive_integer(input)?;
     let (input, _) = tag(" ")(input)?;
     let (input, c) = anychar(input)?;
     let (input, _) = tag(": ")(input)?;
     let password = input.to_string();
 
-    let p = Policy {
-        min,
-        max,
-        c,
+    let p = PolicyAndPassword {
+        num1,
+        num2,
+        character: c,
         password,
     };
     Ok(("", p))
 }
 
-fn is_valid(policy: &Policy) -> bool {
-    let count = policy.password.matches(policy.c).count() as i32;
-    count >= policy.min && count <= policy.max
+fn is_valid_for_part1(policy: &PolicyAndPassword) -> bool {
+    let count = policy.password.matches(policy.character).count();
+    count >= policy.num1 && count <= policy.num2
+}
+
+fn is_valid_for_part2(policy: &PolicyAndPassword) -> bool {
+    let char_indices = [policy.num1, policy.num2];
+    let extracted_chars = char_indices
+        .iter()
+        .map(|&x| policy.password.chars().nth(x - 1).unwrap());
+    let num_matches = extracted_chars.filter(|&x| x == policy.character).count();
+    num_matches == 1
 }
 
 #[derive(StructOpt)]
@@ -64,15 +69,18 @@ fn main() {
         .filter_map(Result::ok)
         .collect_vec();
 
-    let policies: Vec<Policy> = lines
+    let policies: Vec<PolicyAndPassword> = lines
         .iter()
-        .map(|x| policy(&x))
+        .map(|x| parse_policy(&x))
         .filter_map(Result::ok)
         .map(|x| x.1)
         .collect_vec();
 
-    let num_valid = policies.iter().filter(|&x| is_valid(x)).count();
-    println!("{} valid passwords", num_valid);
+    let num_valid_part1 = policies.iter().filter(|&x| is_valid_for_part1(x)).count();
+    println!("Part 1 valid passwords: {}", num_valid_part1);
+
+    let num_valid_part2 = policies.iter().filter(|&x| is_valid_for_part2(x)).count();
+    println!("Part 2 valid passwords: {}", num_valid_part2);
 }
 
 #[cfg(test)]
@@ -82,13 +90,13 @@ mod tests {
     #[test]
     fn test1() {
         assert_eq!(
-            policy("6-9 d: dddddkzdl"),
+            parse_policy("6-9 d: dddddkzdl"),
             Ok((
                 "",
-                Policy {
-                    min: 6,
-                    max: 9,
-                    c: 'd',
+                PolicyAndPassword {
+                    num1: 6,
+                    num2: 9,
+                    character: 'd',
                     password: String::from("dddddkzdl")
                 }
             ))
